@@ -289,9 +289,9 @@ document.querySelector('#loop-measure-form').addEventListener('submit', (event) 
   const turns = Number(document.querySelector('#loop-turns').value);
   if (!(opening > 0 && totalLength > 0 && exitLength >= 0 && Number.isInteger(turns) && turns > 0)) return;
 
-  const straightBase = totalLength - opening;
+  const straightBase = totalLength - exitLength - opening;
   if (straightBase < 0) {
-    document.querySelector('#loop-total-length').setCustomValidity('O comprimento total deve ser maior que a abertura.');
+    document.querySelector('#loop-total-length').setCustomValidity('O comprimento total deve ser maior que a abertura somada ao comprimento das saídas.');
     document.querySelector('#loop-total-length').reportValidity();
     return;
   }
