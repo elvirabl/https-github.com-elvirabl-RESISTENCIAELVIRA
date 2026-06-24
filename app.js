@@ -549,6 +549,7 @@ function updateRemainingTubeDensity(form, linearMillimeters, elementCount = 1) {
     row.classList.toggle('compatible', wattsCm2 <= limit);
     row.classList.toggle('exceeded', wattsCm2 > limit);
   });
+  result.classList.add('visible');
   return true;
 }
 
