@@ -184,7 +184,8 @@ document.querySelector('#finned-measure-form').addEventListener('submit', (event
 
   document.querySelector('#finned-result-mm').textContent = format.format(linearMillimeters);
   document.querySelector('#finned-result-m').textContent = formatMeters.format(linearMeters);
-  document.querySelector('#finned-area-length').textContent = format.format(finnedAreaLength) + ' mm';
+  const finnedAreaLengthElement = document.querySelector('#finned-area-length');
+  if (finnedAreaLengthElement) finnedAreaLengthElement.textContent = format.format(finnedAreaLength) + ' mm';
   if (!updateRemainingTubeDensity(document.querySelector('#finned-measure-form'), linearMillimeters)) return;
   document.querySelector('#finned-result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 });
@@ -518,30 +519,39 @@ const densityTableMarkup = `
 
 function updateRemainingTubeDensity(form, linearMillimeters, elementCount = 1) {
   const result = form.querySelector('.result');
+  const coldZoneInput = form.querySelector('.piece-cold-zone');
   const tubeDiameterMm = Number(form.querySelector('.piece-tube-diameter').value);
   const power = Number(form.querySelector('.piece-power').value);
-  const coldZone = Number(form.querySelector('.piece-cold-zone').value);
+  const coldZone = Number(coldZoneInput.value);
   const heatedLengthMm = linearMillimeters - (coldZone * 2 * elementCount);
-
-  if (!(tubeDiameterMm > 0 && power > 0 && heatedLengthMm > 0)) {
-    if (!(heatedLengthMm > 0)) {
-      const coldZoneInput = form.querySelector('.piece-cold-zone');
-      coldZoneInput.setCustomValidity('A Zona Fria de todas as pontas deve ser menor que o comprimento linear.');
-      coldZoneInput.reportValidity();
-    }
-    result.classList.remove('visible');
-    return false;
-  }
-
-  const heatedAreaCm2 = Math.PI * (tubeDiameterMm / 10) * (heatedLengthMm / 10);
-  const wattsCm2 = power / heatedAreaCm2;
   const format = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const formatPower = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
   const selectedProduct = form.closest('.view').querySelector('.selected-product');
 
+  coldZoneInput.setCustomValidity('');
+  result.classList.add('visible');
+
+  if (!(tubeDiameterMm > 0 && power > 0 && heatedLengthMm > 0)) {
+    result.querySelector('.tube-heated-length').textContent = heatedLengthMm > 0 ? format.format(heatedLengthMm) + ' mm' : '--';
+    result.querySelector('.tube-heated-area').textContent = '--';
+    result.querySelector('.tube-watts-cm2').textContent = '--';
+    selectedProduct.querySelectorAll('.tube-density-reference tbody tr').forEach((row) => {
+      row.querySelector('.density-max-power').textContent = '--';
+      row.classList.remove('compatible', 'exceeded');
+    });
+    if (!(heatedLengthMm > 0)) {
+      coldZoneInput.setCustomValidity('A Zona Fria de todas as pontas deve ser menor que o comprimento linear.');
+      coldZoneInput.reportValidity();
+    }
+    return true;
+  }
+
+  const heatedAreaCm2 = Math.PI * (tubeDiameterMm / 10) * (heatedLengthMm / 10);
+  const wattsCm2 = power / heatedAreaCm2;
+
   result.querySelector('.tube-heated-length').textContent = format.format(heatedLengthMm) + ' mm';
-  result.querySelector('.tube-heated-area').textContent = format.format(heatedAreaCm2) + ' cm²';
-  result.querySelector('.tube-watts-cm2').textContent = format.format(wattsCm2) + ' W/cm²';
+  result.querySelector('.tube-heated-area').textContent = format.format(heatedAreaCm2) + ' cm2';
+  result.querySelector('.tube-watts-cm2').textContent = format.format(wattsCm2) + ' W/cm2';
 
   selectedProduct.querySelectorAll('.tube-density-reference tbody tr').forEach((row) => {
     const limit = Number(row.dataset.limit);
@@ -549,7 +559,6 @@ function updateRemainingTubeDensity(form, linearMillimeters, elementCount = 1) {
     row.classList.toggle('compatible', wattsCm2 <= limit);
     row.classList.toggle('exceeded', wattsCm2 > limit);
   });
-  result.classList.add('visible');
   return true;
 }
 
@@ -581,41 +590,4 @@ remainingDensityForms.forEach((form) => {
 
   form.querySelector('.piece-cold-zone').addEventListener('input', (event) => event.target.setCustomValidity(''));
 
-  form.addEventListener('submit', () => {
-    queueMicrotask(() => {
-      if (!form.checkValidity() || !result.classList.contains('visible')) return;
-
-      const linearText = result.querySelector(':scope > strong span').textContent;
-      const linearMillimeters = Number(linearText.replace(/\./g, '').replace(',', '.'));
-      const tubeDiameterMm = Number(form.querySelector('.piece-tube-diameter').value);
-      const power = Number(form.querySelector('.piece-power').value);
-      const coldZone = Number(form.querySelector('.piece-cold-zone').value);
-      const elementCount = form.id === 'head-measure-form' ? Number(document.querySelector('#head-elements').value) : 1;
-      const heatedLengthMm = linearMillimeters - (coldZone * 2 * elementCount);
-
-      if (!(heatedLengthMm > 0)) {
-        const coldZoneInput = form.querySelector('.piece-cold-zone');
-        coldZoneInput.setCustomValidity('A Zona Fria de todas as pontas deve ser menor que o comprimento linear.');
-        coldZoneInput.reportValidity();
-        result.classList.remove('visible');
-        return;
-      }
-
-      const heatedAreaCm2 = Math.PI * (tubeDiameterMm / 10) * (heatedLengthMm / 10);
-      const wattsCm2 = power / heatedAreaCm2;
-      const format = new Intl.NumberFormat('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const formatPower = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 0 });
-
-      result.querySelector('.tube-heated-length').textContent = format.format(heatedLengthMm) + ' mm';
-      result.querySelector('.tube-heated-area').textContent = format.format(heatedAreaCm2) + ' cm²';
-      result.querySelector('.tube-watts-cm2').textContent = format.format(wattsCm2) + ' W/cm²';
-
-      selectedProduct.querySelectorAll('.tube-density-reference tbody tr').forEach((row) => {
-        const limit = Number(row.dataset.limit);
-        row.querySelector('.density-max-power').textContent = formatPower.format(heatedAreaCm2 * limit) + ' W';
-        row.classList.toggle('compatible', wattsCm2 <= limit);
-        row.classList.toggle('exceeded', wattsCm2 > limit);
-      });
-    });
-  });
 });
